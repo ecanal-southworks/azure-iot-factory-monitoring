@@ -1,0 +1,117 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "iothubName": {
+            "type": "string"
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]"
+        },
+        "skuName": {
+            "type": "string",
+            "defaultValue": "S1"
+        },
+        "skuTier": {
+            "type": "string",
+            "defaultValue": "Standard"
+        },
+        "skuCapacity": {
+            "type": "int",
+            "defaultValue": 1,
+            "metadata": {
+                "description": "The number of provisioned IoT Hub units"
+            }
+        },
+        "d2c_retentionTimeInDays": {
+            "type": "int",
+            "defaultValue": 1
+        },
+        "d2c_messagesPartitionsAmount": {
+            "type": "int",
+            "defaultValue": 2
+        },
+        "maxDeliveryCount": {
+            "type": "int",
+            "defaultValue": 10,
+            "metadata": {
+                "description": "The max delivery count for cloud-to-device messages in the device queue"
+            }
+        },
+        "features": {
+            "type": "string",
+            "defaultValue": "None"
+        }
+    },
+    "variables": {
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Devices/IotHubs",
+            "apiVersion": "2020-06-15",
+            "name": "[parameters('iothubName')]",
+            "location": "[parameters('location')]",
+            "sku": {
+                "name": "[parameters('skuName')]",
+                "tier": "[parameters('skuTier')]",
+                "capacity": "[parameters('skuCapacity')]"
+            },
+            "identity": {
+                "type": "None"
+            },
+            "properties": {
+                "ipFilterRules": [],
+                "eventHubEndpoints": {
+                    "events": {
+                        "retentionTimeInDays": "[parameters('d2c_retentionTimeInDays')]",
+                        "partitionCount": "[parameters('d2c_messagesPartitionsAmount')]"
+                    }
+                },
+                "routing": {
+                    "endpoints": {
+                        "serviceBusQueues": [],
+                        "serviceBusTopics": [],
+                        "eventHubs": [],
+                        "storageContainers": []
+                    },
+                    "routes": [],
+                    "fallbackRoute": {
+                        "name": "$fallback",
+                        "source": "DeviceMessages",
+                        "condition": "true",
+                        "endpointNames": [
+                            "events"
+                        ],
+                        "isEnabled": true
+                    }
+                },
+                "storageEndpoints": {},
+                "messagingEndpoints": {
+                    "fileNotifications": {
+                        "lockDurationAsIso8601": "PT1M",
+                        "ttlAsIso8601": "PT1H",
+                        "maxDeliveryCount": "[parameters('maxDeliveryCount')]"
+                    }
+                },
+                "enableFileUploadNotifications": false,
+                "cloudToDevice": {
+                    "maxDeliveryCount": "[parameters('maxDeliveryCount')]",
+                    "defaultTtlAsIso8601": "PT1H",
+                    "feedback": {
+                        "lockDurationAsIso8601": "PT1M",
+                        "ttlAsIso8601": "PT1H",
+                        "maxDeliveryCount": "[parameters('maxDeliveryCount')]"
+                    }
+                },
+                "features": "[parameters('features')]"
+            }
+        }
+    ],
+    "outputs": {
+        "ioTHubOwnerPrimaryKey": {
+            "type": "string",
+            "value": "[listKeys(resourceId('Microsoft.Devices/IotHubs', parameters('iothubName')), '2020-06-15').value[0].primaryKey]"
+        }
+    }
+}

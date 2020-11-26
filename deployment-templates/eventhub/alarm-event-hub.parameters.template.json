@@ -1,0 +1,18 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "storageAccountName": {
+            "value": "Name of the existing storage account"
+        },
+        "dataCaptureContainerName": {
+            "value": "Name of the Azure Blob Storage container to use with the Capture feature"
+        },
+        "webhookConsumerGroup": {
+            "value": "Name of the Event Hub's consumer group to create to use strictly by the Azure Function App"
+        },
+        "logicAppConsumerGroup": {
+            "value": "Name of the Event Hub's consumer group to create to use strictly by the Logic App"
+        }
+    }
+}

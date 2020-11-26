@@ -1,0 +1,96 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "workspaceName": {
+            "type": "string",
+            "defaultValue": "[concat('workspace-', newGuid())]"
+        },
+        "workspaceQueryFactory": {
+            "type": "string",
+            "defaultValue": "query-plot_factory"
+        },
+        "workspaceQueryHour": {
+            "type": "string",
+            "defaultValue": "query-plot_hour"
+        },
+        "customLog": {
+            "type": "string",
+            "defaultValue": "AlarmSensorE2E_CL"
+        },
+        "retentionInDays": {
+            "type": "int",
+            "defaultValue": 30
+        },
+        "dailyQuotaGb": {
+            "type": "int",
+            "defaultValue": -1
+        }
+    },
+    "variables": {
+        "queryFactory": "[concat( parameters('customLog'), ' \n| where timestamp_t > ago(24h)\n| extend [\"Factory Area\"] = factoryArea_s\n| summarize [\"Total amount of alarms received\"] = count() by [\"Factory Area\"], tostring(type_s)\n| render columnchart  with (kind=unstacked)\n ')]",
+        "queryHour": "[concat( parameters('customLog'), ' \n| extend Hour = bin(timestamp_t, 1h)\n| summarize [\"Amount of alarms received\"] = count() by Hour, tostring(type_s) \n| render columnchart  with (kind=unstacked)\n ')]",
+        "apiVersion": "2020-08-01"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.operationalinsights/workspaces",
+            "apiVersion": "[variables('apiVersion')]",
+            "name": "[parameters('workspaceName')]",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "sku": {
+                    "name": "pergb2018"
+                },
+                "retentionInDays": "[parameters('retentionInDays')]",
+                "workspaceCapping": {
+                    "dailyQuotaGb": "[parameters('dailyQuotaGb')]"
+                },
+                "publicNetworkAccessForIngestion": "Enabled",
+                "publicNetworkAccessForQuery": "Enabled"
+            }
+        },
+        {
+            "type": "Microsoft.OperationalInsights/workspaces/savedSearches",
+            "apiVersion": "[variables('apiVersion')]",
+            "name": "[concat(parameters('workspaceName'), '/', parameters('workspaceQueryFactory'))]",
+            "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]"
+            ],
+            "properties": {
+                "Category": "Alarms",
+                "DisplayName": "Plot_Factory",
+                "Query": "[variables('queryFactory')]",
+                "Version": 2
+            }
+        },
+        {
+            "type": "Microsoft.OperationalInsights/workspaces/savedSearches",
+            "apiVersion": "[variables('apiVersion')]",
+            "name": "[concat(parameters('workspaceName'), '/', parameters('workspaceQueryHour'))]",
+            "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]"
+            ],
+            "properties": {
+                "Category": "Alarms",
+                "DisplayName": "AlarmHour",
+                "Query": "[variables('queryHour')]",
+                "Version": 2
+            }
+        }
+    ],
+    "outputs": {
+        "workspaceName": {
+            "type": "string",
+            "value": "[parameters('workspaceName')]"
+        },
+        "customerId": {
+            "type": "string",
+            "value": "[reference(concat('Microsoft.OperationalInsights/workspaces/', parameters('workspaceName')), '2015-03-20').customerId]"
+        },
+        "primarySharedKey": {
+            "type": "string",
+            "value": "[listKeys(resourceId('Microsoft.OperationalInsights/workspaces/', parameters('workspaceName')), '2015-03-20').primarySharedKey]"
+        }
+    }
+}

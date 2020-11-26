@@ -1,0 +1,213 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "resourceGroupName": {
+            "type": "string"
+        },
+        "workspaceName": {
+            "type": "string"
+        },
+        "dashboardName": {
+            "type": "string",
+            "defaultValue": "[concat('dashboard-', newGuid())]"
+        },
+        "customLog": {
+            "type": "string",
+            "defaultValue": "AlarmSensorE2E_CL"
+        }
+    },
+    "variables": {
+        "subscriptionId": "[subscription().subscriptionId]",
+        "resourceId": "[concat( '/subscriptions/', variables('subscriptionId'), '/resourcegroups/', parameters('resourceGroupName'),'/providers/microsoft.operationalinsights/workspaces/', parameters('workspaceName'))]",
+        "queryFactory": "[concat( parameters('customLog'), ' \n| where timestamp_t > ago(24h)\n| extend [\"Factory Area\"] = factoryArea_s\n| summarize [\"Total amount of alarms received\"] = count() by [\"Factory Area\"], tostring(type_s)\n| render columnchart  with (kind=unstacked)\n ')]",
+        "queryHour": "[concat( parameters('customLog'), ' \n| extend Hour = bin(timestamp_t, 1h)\n| summarize [\"Amount of alarms received\"] = count() by Hour, tostring(type_s) \n| render columnchart  with (kind=unstacked)\n ')]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Portal/dashboards",
+            "apiVersion": "2015-08-01-preview",
+            "name": "[parameters('dashboardName')]",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "hidden-title": "[parameters('dashboardName')]"
+            },
+            "properties": {
+                "lenses": {
+                    "0": {
+                        "order": 0,
+                        "parts": {
+                            "0": {
+                                "position": {
+                                    "x": 0,
+                                    "y": 0,
+                                    "colSpan": 6,
+                                    "rowSpan": 4
+                                },
+                                "metadata": {
+                                    "inputs": [
+                                        {
+                                            "name": "ComponentId",
+                                            "value": {
+                                                "SubscriptionId": "[variables('subscriptionId')]",
+                                                "ResourceGroup": "[parameters('resourceGroupName')]",
+                                                "Name": "[parameters('workspaceName')]",
+                                                "ResourceId": "[variables('resourceId')]"
+                                            },
+                                            "isOptional": true
+                                        },
+                                        {
+                                            "name": "Dimensions",
+                                            "value": {
+                                                "xAxis": {
+                                                    "name": "Factory Area",
+                                                    "type": "string"
+                                                },
+                                                "yAxis": [
+                                                    {
+                                                        "name": "Total amount of alarms received",
+                                                        "type": "long"
+                                                    }
+                                                ],
+                                                "splitBy": [
+                                                    {
+                                                        "name": "type_s",
+                                                        "type": "string"
+                                                    }
+                                                ],
+                                                "aggregation": "Sum"
+                                            },
+                                            "isOptional": true
+                                        },
+                                        {
+                                            "name": "Query",
+                                            "value": "[variables('queryFactory')]",
+                                            "isOptional": true
+                                        },
+                                        {
+                                            "name": "Version",
+                                            "value": "1.0",
+                                            "isOptional": true
+                                        },
+                                        {
+                                            "name": "resourceTypeMode",
+                                            "value": "workspace",
+                                            "isOptional": true
+                                        },
+                                        {
+                                            "name": "TimeRange",
+                                            "isOptional": true
+                                        },
+                                        {
+                                            "name": "DashboardId",
+                                            "isOptional": true
+                                        },
+                                        {
+                                            "name": "ControlType",
+                                            "value": "FrameControlChart",
+                                            "isOptional": true
+                                        },
+                                        {
+                                            "name": "SpecificChart",
+                                            "value": "UnstackedColumn",
+                                            "isOptional": true
+                                        }
+                                    ],
+                                    "type": "Extension/AppInsightsExtension/PartType/AnalyticsPart",
+                                    "settings": {
+                                        "content": {
+                                            "PartTitle": "Amount of alarms received",
+                                            "PartSubTitle": "Total alarms received per factory area"
+                                        }
+                                    }
+                                }
+                            },
+                            "1": {
+                                "position": {
+                                    "x": 0,
+                                    "y": 4,
+                                    "colSpan": 6,
+                                    "rowSpan": 4
+                                },
+                                "metadata": {
+                                    "inputs": [
+                                        {
+                                            "name": "ComponentId",
+                                            "value": {
+                                                "SubscriptionId": "[variables('subscriptionId')]",
+                                                "ResourceGroup": "[parameters('resourceGroupName')]",
+                                                "Name": "[parameters('workspaceName')]",
+                                                "ResourceId": "[variables('resourceId')]"
+                                            },
+                                            "isOptional": true
+                                        },
+                                        {
+                                            "name": "Dimensions",
+                                            "value": {
+                                                "xAxis": {
+                                                    "name": "Hour",
+                                                    "type": "datetime"
+                                                },
+                                                "yAxis": [
+                                                    {
+                                                        "name": "Amount of alarms received",
+                                                        "type": "long"
+                                                    }
+                                                ],
+                                                "splitBy": [
+                                                    {
+                                                        "name": "type_s",
+                                                        "type": "string"
+                                                    }
+                                                ],
+                                                "aggregation": "Sum"
+                                            },
+                                            "isOptional": true
+                                        },
+                                        {
+                                            "name": "Query",
+                                            "value": "[variables('queryHour')]",
+                                            "isOptional": true
+                                        },
+                                        {
+                                            "name": "Version",
+                                            "value": "1.0",
+                                            "isOptional": true
+                                        },
+                                        {
+                                            "name": "resourceTypeMode",
+                                            "value": "workspace",
+                                            "isOptional": true
+                                        },
+                                        {
+                                            "name": "DashboardId",
+                                            "isOptional": true
+                                        },
+                                        {
+                                            "name": "ControlType",
+                                            "value": "FrameControlChart",
+                                            "isOptional": true
+                                        },
+                                        {
+                                            "name": "SpecificChart",
+                                            "value": "UnstackedColumn",
+                                            "isOptional": true
+                                        }
+                                    ],
+                                    "type": "Extension/AppInsightsExtension/PartType/AnalyticsPart",
+                                    "settings": {
+                                        "content": {
+                                            "PartTitle": "Amount of alarms received",
+                                            "PartSubTitle": "Alarms received per hour"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "metadata": {}
+        }
+    ]
+}

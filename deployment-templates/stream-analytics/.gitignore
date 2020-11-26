@@ -1,0 +1,18 @@
+# Ignoring config JSON file (using template)
+JobConfig.json
+
+# Ignoring input/output JSON files (using templates)
+**Output**.json
+!**Output**.template.json
+**Input**.json
+!**Input**.template.json
+
+# Ignoring files from loca tests with static data
+LocalRunOutputs/*
+!local-test-input.json
+
+# Ignoring the files with parameters such as credentials (using templates)
+**.parameters.json
+
+# Ignoring local VS Code's settings
+.vscode/

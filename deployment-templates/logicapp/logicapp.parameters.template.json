@@ -1,0 +1,24 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "eventhubName": {
+            "value": "Eventhub where the alarms come from"
+        },
+        "eventhubConnectionString": {
+            "value": "EventHub namespace connection string"
+        },
+        "consumerGroup": {
+            "value": "Name of the consumer group"
+        },
+        "logAnalyticId": {
+            "value": "Log analytic's workspace ID"
+        },
+        "logAnalyticKey": {
+            "value": "Log analytic's workspace key"
+        },
+        "emailTo": {
+            "value": "Email to send the alarm"
+        }
+    }
+}

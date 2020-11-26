@@ -1,0 +1,348 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "templatesStorageAccountName": {
+            "type": "string"
+        },
+        "logicAppEmailTo": {
+            "type": "string"
+        },
+        "principalId": {
+            "type": "securestring"
+        },
+        "eventhubParameters": {
+            "type": "object",
+            "defaultValue": {
+                "namespaceName": "namespace",
+                "deviceName": "test-device"
+            }
+        },
+        "databricksWorkspaceName": {
+            "type": "string",
+            "defaultValue": "[concat(resourceGroup().name, '-workspace')]"
+        },
+        "storageAccountName": {
+            "type": "string",
+            "defaultValue": "storage"
+        },
+        "iotHubName": {
+            "type": "string",
+            "defaultValue": "iothub"
+        },
+        "streamAnalyticsName": {
+            "type": "string",
+            "defaultValue": "stream-analytics"
+        },
+        "databricksName": {
+            "type": "string",
+            "defaultValue": "databricks"
+        },
+        "logAnalyticsName": {
+            "type": "string",
+            "defaultValue": "log-analytics"
+        },
+        "azureMonitorName": {
+            "type": "string",
+            "defaultValue": "monitor-dashboard"
+        },
+        "logicAppName": {
+            "type": "string",
+            "defaultValue": "logicapp"
+        },
+        "webhookFunctionAppName": {
+            "type": "string",
+            "defaultValue": "webhook-function-app"
+        },
+        "readAlarmFunctionAppName": {
+            "type": "string",
+            "defaultValue": "read-alarm-function-app"
+        },
+        "pathToTemplatesInContainer": {
+            "type": "string",
+            "defaultValue": "azuretemplates"
+        }
+    },
+    "variables": {
+        "storageAccountName": "[concat(parameters('storageAccountName'), uniqueString(parameters('storageAccountName')))]",
+        "iotHubName": "[concat(resourceGroup().name, '-', parameters('iotHubName'))]",
+        "eventhubNamespaceName": "[concat(resourceGroup().name, '-', parameters('eventhubParameters').namespaceName)]",
+        "eventHubName": "alarm-event-hub",
+        "dataCaptureContainerName": "samples-container",
+        "databricksOutputContainer": "csv-reports",
+        "webhookConsumerGroup": "webhook-consumer",
+        "logicAppConsumerGroup": "logic-app",
+        "storageDeploymentName": "[concat(parameters('storageAccountName'), '-deployment')]",
+        "iothubDeploymentName": "[concat(parameters('iotHubName'), '-deployment')]",
+        "eventhubDeploymentName": "[concat(variables('eventHubName'), '-deployment')]",
+        "databricksDeploymentName": "[concat(parameters('databricksName'), '-deployment')]",
+        "streamAnalyticsDeploymentName": "[concat(parameters('streamAnalyticsName'), '-deployment')]",
+        "logAnalyticsDeploymentName": "[concat(parameters('logAnalyticsName'), '-deployment')]",
+        "azureMonitorDeploymentName": "[concat(parameters('azureMonitorName'), '-deployment')]",
+        "logicAppDeploymentName": "[concat(parameters('logicAppName'), '-deployment')]",
+        "webhookFunctionAppName": "[concat(parameters('webhookFunctionAppName'), '-deployment')]",
+        "readAlarmFunctionAppName": "[concat(parameters('readAlarmFunctionAppName'), '-deployment')]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-10-01",
+            "name": "[variables('storageDeploymentName')]",
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[concat('https://', parameters('templatesStorageAccountName'), '.blob.core.windows.net/', parameters('pathToTemplatesInContainer'), '/', parameters('storageAccountName'), '.json')]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "storageAccountName": {
+                        "value": "[variables('storageAccountName')]"
+                    },
+                    "dataCaptureContainerName": {
+                        "value": "[variables('dataCaptureContainerName')]"
+                    },
+                    "databricksOutputContainer": {
+                        "value": "[variables('databricksOutputContainer')]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-10-01",
+            "name": "[variables('iothubDeploymentName')]",
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[concat('https://', parameters('templatesStorageAccountName'), '.blob.core.windows.net/', parameters('pathToTemplatesInContainer'), '/', parameters('iotHubName'), '.json')]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "iothubName": {
+                        "value": "[variables('iotHubName')]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-10-01",
+            "name": "[variables('eventhubDeploymentName')]",
+            "dependsOn": [ "[resourceId('Microsoft.Resources/deployments', variables('storageDeploymentName'))]" ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[concat('https://', parameters('templatesStorageAccountName'), '.blob.core.windows.net/', parameters('pathToTemplatesInContainer'), '/', variables('eventHubName'), '.json')]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "storageAccountName": {
+                        "value": "[variables('storageAccountName')]"
+                    },
+                    "eventHubName": {
+                        "value": "[variables('eventHubName')]"
+                    },
+                    "deviceName": {
+                        "value": "[parameters('eventhubParameters').deviceName]"
+                    },
+                    "namespaceName": {
+                        "value": "[variables('eventhubNamespaceName')]"
+                    },
+                    "webhookConsumerGroup": {
+                        "value": "[variables('webhookConsumerGroup')]"
+                    },
+                    "logicAppConsumerGroup": {
+                        "value": "[variables('logicAppConsumerGroup')]"
+                    },
+                    "dataCaptureContainerName": {
+                        "value": "[variables('dataCaptureContainerName')]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-10-01",
+            "name": "[variables('databricksDeploymentName')]",
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[concat('https://', parameters('templatesStorageAccountName'), '.blob.core.windows.net/', parameters('pathToTemplatesInContainer'), '/', parameters('databricksName'), '.json')]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "principalId": {
+                        "value": "[parameters('principalId')]"
+                    },
+                    "workspaceName": {
+                        "value": "[concat(parameters('databricksWorkspaceName'))]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-10-01",
+            "name": "[variables('streamAnalyticsDeploymentName')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Resources/deployments', variables('storageDeploymentName'))]",
+                "[resourceId('Microsoft.Resources/deployments', variables('iothubDeploymentName'))]",
+                "[resourceId('Microsoft.Resources/deployments', variables('eventhubDeploymentName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[concat('https://', parameters('templatesStorageAccountName'), '.blob.core.windows.net/', parameters('pathToTemplatesInContainer'), '/', parameters('streamAnalyticsName'), '.json')]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "input_iotHubName": {
+                        "value": "[variables('iotHubName')]"
+                    },
+                    "input_consumerGroup": {
+                        "value": "$Default"
+                    },
+                    "input_sharedAccessPolicyName": {
+                        "value": "iothubowner"
+                    },
+                    "input_sharedAccessPolicyKey": {
+                        "value": "[reference(variables('iothubDeploymentName')).outputs.ioTHubOwnerPrimaryKey.value]"
+                    },
+                    "output_namespace": {
+                        "value": "[variables('eventhubNamespaceName')]"
+                    },
+                    "output_eventHubName": {
+                        "value": "[variables('eventHubName')]"
+                    },
+                    "output_sharedAccessPolicyName": {
+                        "value": "[reference(variables('eventhubDeploymentName')).outputs.eventhubSharedAccessPolicyName.value]"
+                    },
+                    "output_sharedAccessPolicyKey": {
+                        "value": "[reference(variables('eventhubDeploymentName')).outputs.eventhubOwnerPrimaryKey.value]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-10-01",
+            "name": "[variables('logAnalyticsDeploymentName')]",
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[concat('https://', parameters('templatesStorageAccountName'), '.blob.core.windows.net/', parameters('pathToTemplatesInContainer'), '/', parameters('logAnalyticsName'), '.json')]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {}
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-10-01",
+            "name": "[variables('azureMonitorDeploymentName')]",
+            "dependsOn": [ "[resourceId('Microsoft.Resources/deployments', variables('logAnalyticsDeploymentName'))]" ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[concat('https://', parameters('templatesStorageAccountName'), '.blob.core.windows.net/', parameters('pathToTemplatesInContainer'), '/', parameters('azureMonitorName'), '.json')]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "resourceGroupName": {
+                        "value": "[resourceGroup().name]"
+                    },
+                    "workspaceName": {
+                        "value": "[reference(variables('logAnalyticsDeploymentName')).outputs.workspaceName.value]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-10-01",
+            "name": "[variables('logicAppDeploymentName')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Resources/deployments', variables('eventhubDeploymentName'))]",
+                "[resourceId('Microsoft.Resources/deployments', variables('logAnalyticsDeploymentName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[concat('https://', parameters('templatesStorageAccountName'), '.blob.core.windows.net/', parameters('pathToTemplatesInContainer'), '/', parameters('logicAppName'), '.json')]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "eventhubName": {
+                        "value": "[variables('eventHubName')]"
+                    },
+                    "eventhubConnectionString": {
+                        "value": "[reference(variables('eventhubDeploymentName')).outputs.eventhubOwnerPrimaryConnectionString.value]"
+                    },
+                    "consumerGroup": {
+                        "value": "[variables('logicAppConsumerGroup')]"
+                    },
+                    "logAnalyticId": {
+                        "value": "[reference(variables('logAnalyticsDeploymentName')).outputs.customerId.value]"
+                    },
+                    "logAnalyticKey": {
+                        "value": "[reference(variables('logAnalyticsDeploymentName')).outputs.primarySharedKey.value]"
+                    },
+                    "emailTo": {
+                        "value": "[parameters('logicAppEmailTo')]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-10-01",
+            "name": "[variables('webhookFunctionAppName')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Resources/deployments', variables('storageDeploymentName'))]",
+                "[resourceId('Microsoft.Resources/deployments', variables('eventhubDeploymentName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[concat('https://', parameters('templatesStorageAccountName'), '.blob.core.windows.net/', parameters('pathToTemplatesInContainer'), '/', parameters('webhookFunctionAppName'), '.json')]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "storageAccountName": {
+                        "value": "[variables('storageAccountName')]"
+                    },
+                    "eventhubName": {
+                        "value": "[variables('eventHubName')]"
+                    },
+                    "eventhubConnectionString": {
+                        "value": "[reference(variables('eventhubDeploymentName')).outputs.eventhubOwnerPrimaryConnectionString.value]"
+                    },
+                    "eventhubConsumerGroup": {
+                        "value": "[variables('webhookConsumerGroup')]"
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2019-10-01",
+            "name": "[variables('readAlarmFunctionAppName')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Resources/deployments', variables('storageDeploymentName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "templateLink": {
+                    "uri": "[concat('https://', parameters('templatesStorageAccountName'), '.blob.core.windows.net/', parameters('pathToTemplatesInContainer'), '/', parameters('readAlarmFunctionAppName'), '.json')]",
+                    "contentVersion": "1.0.0.0"
+                },
+                "parameters": {
+                    "storageAccountName": {
+                        "value": "[variables('storageAccountName')]"
+                    }
+                }
+            }
+        }
+    ],
+    "outputs": {}
+}

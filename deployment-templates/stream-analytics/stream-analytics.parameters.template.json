@@ -1,0 +1,36 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "storageAccountName": {
+            "value": "Storage Account's name"
+        },
+        "storageAccountKey": {
+            "value": null
+        },
+        "input_iotHubName": {
+            "value": "IoT Hub's name (input)"
+        },
+        "input_sharedAccessPolicyName": {
+            "value": "Shared Access Policy name of the IoT Hub"
+        },
+        "input_sharedAccessPolicyKey": {
+            "value": null
+        },
+        "input_consumerGroup": {
+            "value": "Name of the consumer group created in the IoT Hub to use strictly by Azure Stream Analytics"
+        },
+        "output_namespace": {
+            "value": "Event Hub's namespace name"
+        },
+        "output_eventHubName": {
+            "value": "Event Hub's name"
+        },
+        "output_sharedAccessPolicyName": {
+            "value": "Shared Access Policy name of the Event Hub"
+        },
+        "output_sharedAccessPolicyKey": {
+            "value": null
+        }
+    }
+}

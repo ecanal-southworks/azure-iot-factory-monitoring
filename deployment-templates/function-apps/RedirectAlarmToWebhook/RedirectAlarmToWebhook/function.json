@@ -1,0 +1,16 @@
+{
+    "scriptFile": "__init__.py",
+    "entryPoint": "RedirectAlarmToWebhook",
+    "bindings": [
+        {
+            "type": "eventHubTrigger",
+            "name": "event",
+            "direction": "in",
+            "eventHubName": "%EVENT_HUB_NAME%",
+            "connection": "EVENT_HUB_CONNECTION_STRING",
+            "cardinality": "one",
+            "consumerGroup": "webhook-consumer",
+            "dataType": "binary"
+        }
+    ]
+}

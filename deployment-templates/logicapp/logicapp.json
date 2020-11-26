@@ -1,0 +1,335 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "eventhubName": {
+            "type": "string",
+            "metadata": {
+                "description": "Eventhub where the Logic app will be listening to new events"
+            }
+        },
+        "eventhubConnectionString": {
+            "type": "string",
+            "metadata": {
+                "description": "Connection string of the Eventhub namespace"
+            }
+        },
+        "consumerGroup": {
+            "type": "string"
+        },
+        "logAnalyticId": {
+            "type": "string",
+            "metadata": {
+                "description": "Workspace ID of the Log Analytic resource"
+            }
+        },
+        "logAnalyticKey": {
+            "type": "string",
+            "metadata": {
+                "description": "Workspace ID of the Log Analytic resource"
+            }
+        },
+        "emailTo": {
+            "type": "string",
+            "metadata": {
+                "description": "Email recipient where alarm is sent"
+            }
+        },
+        "connectionsOffice365": {
+            "type": "string",
+            "defaultValue": "office365",
+            "metadata": {
+                "description": "Name of Office365's connector created on the Azure Portal (with the default value it will always work)"
+            }
+        },
+        "connectionsEventhubs": {
+            "type": "string",
+            "defaultValue": "eventhubs",
+            "metadata": {
+                "description": "Name of Evethub's connector created on the Azure Portal (with the default value it will always work)"
+            }
+        },
+        "connectionsLogAnalytics": {
+            "type": "string",
+            "defaultValue": "azureloganalyticsdatacollector",
+            "metadata": {
+                "description": "Name of Log Analytic's connector created on the Azure Portal (with the default value it will always work)"
+            }
+        },
+        "office365DisplayName": {
+            "type": "string",
+            "defaultValue": "Office365Connector",
+            "metadata": {
+                "description": "Name of the connection inside the connector"
+            }
+        },
+        "eventhubsDisplayName": {
+            "type": "string",
+            "defaultValue": "EventHubConnector",
+            "metadata": {
+                "description": "Name of the connection inside connector"
+            }
+        },
+        "logAnalyticDisplayName": {
+            "type": "string",
+            "defaultValue": "LogAnalyticConnector",
+            "metadata": {
+                "description": "Name of the connection inside connector"
+            }
+        },
+        "logicAppName": {
+            "type": "string",
+            "defaultValue": "SendMailLogicApp",
+            "metadata": {
+                "description": "Name of the Logic App. With the default value it will always work"
+            }
+        },
+        "maxEventsReadFromEventhub": {
+            "type": "int",
+            "defaultValue": 20,
+            "metadata": {
+                "description": "Max number events read form the EventHub"
+            }
+        },
+        "intervalToTriggerWorkflow": {
+            "type": "int",
+            "defaultValue": 1,
+            "metadata": {
+                "description": "Interval that Logic App waits for executing the workflow based on the frequency of the 'interval_frequency' parameter"
+            }
+        },
+        "intervalFrequency": {
+            "type": "string",
+            "allowedValues": [
+                "Hour",
+                "Minute",
+                "Second"
+            ],
+            "defaultValue": "Minute",
+            "metadata": {
+                "description": "Workflow execution interval frequency"
+            }
+        },
+        "emailSubject": {
+            "type": "string",
+            "defaultValue": "New Alarm",
+            "metadata": {
+                "description": "Email subject of the alarm"
+            }
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Web/connections",
+            "apiVersion": "2016-06-01",
+            "location": "[resourceGroup().location]",
+            "name": "[parameters('connectionsOffice365')]",
+            "kind": "V1",
+            "properties": {
+                "api": {
+                    "id": "[concat(subscription().id, '/providers/Microsoft.Web/locations/', resourceGroup().location, '/managedApis/', 'office365')]"
+                },
+                "displayName": "[parameters('office365DisplayName')]"
+            }
+        },
+        {
+            "type": "Microsoft.Web/connections",
+            "apiVersion": "2016-06-01",
+            "name": "[parameters('connectionsEventhubs')]",
+            "location": "[resourceGroup().location]",
+            "kind": "V1",
+            "properties": {
+                "displayName": "[parameters('eventhubsDisplayName')]",
+                "customParameterValues": {},
+                "api": {
+                    "id": "[concat(subscription().id, '/providers/Microsoft.Web/locations/', resourceGroup().location, '/managedApis/', 'eventhubs')]"
+                },
+                "parameterValues": {
+                    "connectionString": "[parameters('eventhubConnectionString')]"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Web/connections",
+            "apiVersion": "2016-06-01",
+            "name": "[parameters('connectionsLogAnalytics')]",
+            "location": "[resourceGroup().location]",
+            "kind": "V1",
+            "properties": {
+                "displayName": "[parameters('logAnalyticDisplayName')]",
+                "customParameterValues": {},
+                "api": {
+                    "id": "[concat(subscription().id, '/providers/Microsoft.Web/locations/', resourceGroup().location, '/managedApis/', 'azureloganalyticsdatacollector')]"
+                },
+                "parameterValues": {
+                    "username": "[parameters('logAnalyticId')]",
+                    "password": "[parameters('logAnalyticKey')]"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "[parameters('logicAppName')]",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/connections', parameters('connectionsOffice365'))]",
+                "[resourceId('Microsoft.Web/connections', parameters('connectionsEventhubs'))]"
+            ],
+            "properties": {
+                "state": "Enabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        }
+                    },
+                    "triggers": {
+                        "When_events_are_available_in_Event_Hub": {
+                            "recurrence": {
+                                "frequency": "[parameters('intervalFrequency')]",
+                                "interval": "[parameters('intervalToTriggerWorkflow')]"
+                            },
+                            "splitOn": "@triggerBody()",
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['eventhubs']['connectionId']"
+                                    }
+                                },
+                                "method": "get",
+                                "path": "[concat('/', uriComponent(uriComponent(parameters('eventhubName'))), '/events/batch/head')]",
+                                "queries": {
+                                    "consumerGroupName": "[parameters('consumerGroup')]",
+                                    "contentType": "application/json",
+                                    "maximumEventsCount": "[parameters('maxEventsReadFromEventhub')]"
+                                }
+                            }
+                        }
+                    },
+                    "actions": {
+                        "Parse_JSON": {
+                            "inputs": {
+                                "content": "@triggerBody()?['ContentData']",
+                                "schema": {
+                                    "items": {
+                                        "properties": {
+                                            "deviceId": {
+                                                "type": "string"
+                                            },
+                                            "factoryArea": {
+                                                "type": "string"
+                                            },
+                                            "machineType": {
+                                                "type": "string"
+                                            },
+                                            "status": {
+                                                "type": "string"
+                                            },
+                                            "timestamp": {
+                                                "type": "string"
+                                            },
+                                            "type": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        "required": [
+                                            "status",
+                                            "timestamp",
+                                            "type",
+                                            "deviceId",
+                                            "factoryArea",
+                                            "machineType"
+                                        ],
+                                        "type": "object"
+                                    },
+                                    "type": "array"
+                                }
+                            },
+                            "runAfter": {},
+                            "type": "ParseJson"
+                        },
+                        "Send_Alarm_Log_Analytic": {
+                            "inputs": {
+                                "body": "@{body('Parse_JSON')}",
+                                "headers": {
+                                    "Log-Type": "AlarmSensorE2E"
+                                },
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['azureloganalyticsdatacollector']['connectionId']"
+                                    }
+                                },
+                                "method": "post",
+                                "path": "/api/logs"
+                            },
+                            "runAfter": {
+                                "Parse_JSON": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "ApiConnection"
+                        },
+                        "For_each": {
+                            "actions": {
+                                "Send_alarm_email_action": {
+                                    "inputs": {
+                                        "body": {
+                                            "Body": "<p><strong>Device ID</strong>: @{items('For_each')['deviceId']}<br>\n<strong>Type</strong>: @{items('For_each')['type']}<br>\n<strong>Status</strong>: @{items('For_each')['status']}<br>\n<strong>Machine Type</strong>: @{items('For_each')['machineType']}<br>\n<strong>Factory Area:</strong> @{items('For_each')['factoryArea']}<br>\n<strong>Date</strong>: @{items('For_each')['timestamp']}<br>\n<br>\n</p>",
+                                            "Subject": "[parameters('emailSubject')]",
+                                            "To": "[parameters('emailTo')]"
+                                        },
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['office365']['connectionId']"
+                                            }
+                                        },
+                                        "method": "post",
+                                        "path": "/v2/Mail"
+                                    },
+                                    "runAfter": {},
+                                    "type": "ApiConnection"
+                                }
+                            },
+                            "foreach": "@body('Parse_JSON')",
+                            "runAfter": {
+                                "Parse_JSON": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Foreach"
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "type": "Object",
+                        "value": {
+                            "eventhubs": {
+                                "id": "[concat(subscription().id, '/providers/Microsoft.Web/locations/', resourceGroup().location, '/managedApis/', parameters('connectionsEventhubs'))]",
+                                "connectionId": "[resourceId('Microsoft.Web/connections', parameters('connectionsEventhubs'))]",
+                                "connectionName": "[parameters('connectionsEventhubs')]"
+                            },
+                            "office365": {
+                                "id": "[concat(subscription().id, '/providers/Microsoft.Web/locations/', resourceGroup().location, '/managedApis/', parameters('connectionsOffice365'))]",
+                                "connectionId": "[resourceId('Microsoft.Web/connections', parameters('connectionsOffice365'))]",
+                                "connectionName": "[parameters('connectionsOffice365')]"
+                            },
+                            "azureloganalyticsdatacollector": {
+                                "id": "[concat(subscription().id, '/providers/Microsoft.Web/locations/', resourceGroup().location, '/managedApis/', parameters('connectionsLogAnalytics'))]",
+                                "connectionId": "[resourceId('Microsoft.Web/connections', parameters('connectionsLogAnalytics'))]",
+                                "connectionName": "[parameters('connectionsLogAnalytics')]"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}

@@ -1,0 +1,70 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "principalId": {
+            "type": "securestring"
+        },
+        "roleDefinitionId": {
+            "type": "string",
+            "defaultValue": "8e3af657-a8ff-443c-a75c-2fe8c4bcb635",
+            "metadata": {
+                "description": "Specifies the role definition ID used in the role assignment; the default value is Azure's built-in 'owner' role ID"
+            }
+        },
+        "workspaceName": {
+            "type": "string",
+            "defaultValue": "[concat(resourceGroup().name, '-workspace')]",
+            "metadata": {
+                "description": "The name of the Azure Databricks workspace to create"
+            }
+        },
+        "skuTier": {
+            "type": "string",
+            "defaultValue": "standard",
+            "allowedValues": [
+                "standard",
+                "premium"
+            ],
+            "metadata": {
+                "description": "The pricing tier of workspace"
+            }
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+                "description": "Location for all resources"
+            }
+        }
+    },
+    "variables": {
+        "managedResourceGroupName": "[concat('databricks-rg-', parameters('workspaceName'), '-', uniqueString(parameters('workspaceName'), resourceGroup().id))]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Databricks/workspaces",
+            "apiVersion": "2018-04-01",
+            "name": "[parameters('workspaceName')]",
+            "location": "[parameters('location')]",
+            "sku": {
+                "name": "[parameters('skuTier')]"
+            },
+            "properties": {
+                "managedResourceGroupId": "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('managedResourceGroupName'))]",
+                "authorizations": [
+                    {
+                        "principalId": "[parameters('principalId')]",
+                        "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', parameters('roleDefinitionId'))]"
+                    }
+                ]
+            }
+        }
+    ],
+    "outputs": {
+        "workspace": {
+            "type": "object",
+            "value": "[reference(resourceId('Microsoft.Databricks/workspaces', parameters('workspaceName')))]"
+        }
+    }
+}

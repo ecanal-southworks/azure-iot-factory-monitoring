@@ -1,0 +1,198 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "input_iotHubName": {
+            "type": "string"
+        },
+        "input_sharedAccessPolicyName": {
+            "type": "string"
+        },
+        "input_sharedAccessPolicyKey": {
+            "type": "string"
+        },
+        "input_consumerGroup": {
+            "type": "string"
+        },
+        "output_namespace": {
+            "type": "string"
+        },
+        "output_eventHubName": {
+            "type": "string"
+        },
+        "output_sharedAccessPolicyName": {
+            "type": "string"
+        },
+        "output_sharedAccessPolicyKey": {
+            "type": "string"
+        },
+        "OutputStartTime": {
+            "type": "string",
+            "defaultValue": "2019-01-01T00:00:00Z"
+        },
+        "DataLocale": {
+            "type": "string",
+            "defaultValue": "en-US"
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]"
+        },
+        "StreamAnalyticsJobName": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 63,
+            "defaultValue": "[concat(resourceGroup().name, '-job')]",
+            "metadata": {
+                "description": "Stream Analytics Job Name, can contain alphanumeric characters and hypen and must be 3-63 characters long"
+            }
+        },
+        "OutputStartMode": {
+            "type": "string",
+            "allowedValues": [
+                "JobStartTime",
+                "CustomTime",
+                "LastOutputEventTime"
+            ],
+            "defaultValue": "JobStartTime",
+            "metadata": {
+                "description": "This property should only be utilized when it is desired that the job be started immediately upon creation"
+            }
+        },
+        "OutputErrorPolicy": {
+            "type": "string",
+            "allowedValues": [
+                "Drop",
+                "Stop"
+            ],
+            "defaultValue": "Stop",
+            "metadata": {
+                "description": "Policy to apply to events that arrive at the output and cannot be written to the external storage due to being malformed"
+            }
+        },
+        "StreamingUnits": {
+            "type": "int",
+            "minValue": 1,
+            "maxValue": 192,
+            "defaultValue": 1,
+            "allowedValues": [
+                1,
+                3,
+                6,
+                12,
+                18,
+                24,
+                30,
+                36,
+                42,
+                48,
+                54,
+                60,
+                66,
+                72,
+                78,
+                84,
+                90,
+                96,
+                102,
+                108,
+                114,
+                120,
+                126,
+                132,
+                138,
+                144,
+                150,
+                156,
+                162,
+                168,
+                174,
+                180,
+                186,
+                192
+            ],
+            "metadata": {
+                "description": "Number of Streaming Units"
+            }
+        }
+    },
+    "resources": [
+        {
+            "type": "Microsoft.StreamAnalytics/StreamingJobs",
+            "apiVersion": "2017-04-01-preview",
+            "name": "[parameters('StreamAnalyticsJobName')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "outputStartMode": "[parameters('OutputStartMode')]",
+                "outputStartTime": "[if(equals(parameters('OutputStartMode'),'CustomTime'), parameters('OutputStartTime'), json('null'))]",
+                "sku": {
+                    "name": "standard"
+                },
+                "jobType": "Cloud",
+                "eventsOutOfOrderPolicy": "Adjust",
+                "outputErrorPolicy": "[parameters('OutputErrorPolicy')]",
+                "eventsOutOfOrderMaxDelayInSeconds": 0,
+                "eventsLateArrivalMaxDelayInSeconds": 5,
+                "dataLocale": "[parameters('DataLocale')]",
+                "compatibilityLevel": "1.2",
+                "transformation": {
+                    "name": "Transformation",
+                    "properties": {
+                        "streamingUnits": "[parameters('StreamingUnits')]",
+                        "query": "WITH Temp AS (\n\r    SELECT\n\r        value,\n\r        CAST(timestamp AS DATETIME) AS timestamp,\n\r        GetMetadataPropertyValue(measInputIothub, '[User].[measType]') AS type,\n\r        GetMetadataPropertyValue(measInputIothub, '[User].[factoryArea]') AS factoryArea,\n\r        GetMetadataPropertyValue(measInputIothub, '[User].[machineType]') AS machineType,\n\r        GetMetadataPropertyValue(measInputIothub, 'IoTHub.ConnectionDeviceId') AS deviceId\n\r    FROM measInputIothub\n\r    TIMESTAMP BY timestamp\n\r),\n\r-- Add column to specify if the threshold has been crossed, and a column to specify if the 'back to normal' threshold is crossed back\n\rMeasurementsWithTriggers AS (\n\r    SELECT value, timestamp, type, deviceId, factoryArea, machineType,\n\r    -- If max value in window of time is under low security bound or min value is above high security bound, triggerOn = 1, otherwise 0\n\r    (CASE WHEN (\n\r			value < (CASE type WHEN 'power' THEN 40 when 'temperature' THEN 0 ELSE 0 END)\n\r			AND LAG(value, 1, -1) OVER (PARTITION BY deviceId, type LIMIT DURATION(minute, 1)) < (CASE type WHEN 'power' THEN 40 when 'temperature' THEN 0 ELSE 0 END)\n\r			AND LAG(value, 2, -1) OVER (PARTITION BY deviceId, type LIMIT DURATION(minute, 1)) < (CASE type WHEN 'power' THEN 40 when 'temperature' THEN 0 ELSE 0 END)\n\r		) OR (\n\r			value > (CASE type WHEN 'power' THEN 80 when 'temperature' THEN 80 ELSE 80 END)\n\r			AND LAG(value, 1, -1) OVER (PARTITION BY deviceId, type LIMIT DURATION(minute, 1)) > (CASE type WHEN 'power' THEN 80 WHEN 'temperature' THEN 80 ELSE 80 END)\n\r			AND LAG(value, 2, -1) OVER (PARTITION BY deviceId, type LIMIT DURATION(minute, 1)) > (CASE type WHEN 'power' THEN 80 WHEN 'temperature' THEN 80 ELSE 80 END)\n\r		)\n\r		THEN 1\n\r		ELSE 0\n\r    END) AS triggerOn,\n\r	-- If min value in window of time is above low security bound or max value is below high security, triggerOff = 1, otherwise 0\n\r	(CASE WHEN (\n\r			value > (CASE type WHEN 'power' THEN 40 when 'temperature' THEN 0 ELSE 0 END)\n\r			AND LAG(value, 1, -1) OVER (PARTITION BY deviceId, type LIMIT DURATION(minute, 1)) > (CASE type WHEN 'power' THEN 40 when 'temperature' THEN 0 ELSE 0 END)\n\r			AND LAG(value, 2, -1) OVER (PARTITION BY deviceId, type LIMIT DURATION(minute, 1)) > (CASE type WHEN 'power' THEN 40 when 'temperature' THEN 0 ELSE 0 END)\n\r		) AND (\n\r			value < (CASE type WHEN 'power' THEN 80 when 'temperature' THEN 80 ELSE 80 END)\n\r			AND LAG(value, 1, -1) OVER (PARTITION BY deviceId, type LIMIT DURATION(minute, 1)) < (CASE type WHEN 'power' THEN 80 WHEN 'temperature' THEN 80 ELSE 80 END)\n\r			AND LAG(value, 2, -1) OVER (PARTITION BY deviceId, type LIMIT DURATION(minute, 1)) < (CASE type WHEN 'power' THEN 80 WHEN 'temperature' THEN 80 ELSE 80 END)\n\r		)\n\r		THEN 1\n\r		ELSE 0\n\r	END) AS triggerOff\n\r    FROM Temp\n\r),\n\r\n\r-- Filtering the results to consider only if there is an alarm triggerOn/triggerOff and add an on/off column respectively\n\rAlarmStatus AS (\n\r    SELECT value, timestamp, type, deviceId, factoryArea, machineType,\n\r	(CASE WHEN triggerOn = 1 THEN 'on' ELSE 'off' END) AS status\n\r    FROM MeasurementsWithTriggers\n\r    WHERE triggerOn = 1 OR triggerOff = 1\n\r),\n\r\n\r-- Filtering the alarms to keep only if the previous one has a different state\n\r-- First alarm is always kept because there is no a previous state\n\rAlarmEvents AS (\n\r    SELECT timestamp, type, deviceId, factoryArea, machineType, status\n\r	FROM AlarmStatus\n\r	WHERE (\n\r        status != LAG(status, 1) OVER (PARTITION BY deviceId, type LIMIT DURATION(minute, 1)))\n\r        OR LAG(status, 1) OVER (PARTITION BY deviceId, type LIMIT DURATION(minute, 10)) IS NULL\n\r)\n\r\n\rSELECT * INTO alarmOutputEventhub FROM AlarmEvents\n\r"
+                    }
+                },
+                "inputs": [
+                    {
+                        "name": "measInputIothub",
+                        "properties": {
+                            "type": "Stream",
+                            "datasource": {
+                                "type": "Microsoft.Devices/IotHubs",
+                                "properties": {
+                                    "iotHubNamespace": "[parameters('input_iotHubName')]",
+                                    "consumerGroupName": "[parameters('input_consumerGroup')]",
+                                    "endpoint": "messages/events",
+                                    "sharedAccessPolicyName": "[parameters('input_sharedAccessPolicyName')]",
+                                    "sharedAccessPolicyKey": "[parameters('input_sharedAccessPolicyKey')]"
+                                }
+                            },
+                            "compression": {
+                                "type": "None"
+                            },
+                            "serialization": {
+                                "type": "Json",
+                                "properties": {
+                                    "encoding": "UTF8"
+                                }
+                            }
+                        }
+                    }
+                ],
+                "outputs": [
+                    {
+                        "name": "alarmOutputEventhub",
+                        "properties": {
+                            "serialization": {
+                                "type": "Json",
+                                "properties": {
+                                    "encoding": "UTF8",
+                                    "format": "Array"
+                                }
+                            },
+                            "datasource": {
+                                "type": "Microsoft.ServiceBus/EventHub",
+                                "properties": {
+                                    "serviceBusNamespace": "[parameters('output_namespace')]",
+                                    "eventHubName": "[parameters('output_eventHubName')]",
+                                    "sharedAccessPolicyName": "[parameters('output_sharedAccessPolicyName')]",
+                                    "sharedAccessPolicyKey": "[parameters('output_sharedAccessPolicyKey')]"
+                                }
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    ]
+}
