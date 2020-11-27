@@ -1,6 +1,6 @@
 If you download and run this reference implementation you will be able to simulate sensors data, check alarms in the dashboard and/or receive notification emails. Also, you will be able to get reports being built using Databricks.
 
-You can find the complete article describing the scenario tackled with this reference implementation [here](https://foo).
+You can find the complete article describing the scenario tackled with this reference implementation [here](https://medium.com/southworks/monitoring-a-printed-circuit-board-factory-in-near-real-time-a6dafaa650d7).
 
 # Appendix A - Requirements
 
@@ -12,9 +12,8 @@ In order to test our solution, you will need the following:
 3. [NodeJS](https://nodejs.org/en/) (necessary to run the sample emulator locally).
 
 # Appendix B - Process
-To run our solution, you will need to clone our repository [here]({public_repo_path}).
 
-Afterwards follow the instructions detailed in the README files within each of the subfolders that explain how to [run the emulator](/devices-simulator) locally and [deploy the solution](/deployment-templates) to your Azure subscription.
+To run our solution follow the instructions detailed in the README files within each of the subfolders that explain how to [run the emulator](/devices-simulator) locally and [deploy the solution](/deployment-templates) to your Azure subscription.
 
 Take into consideration that the deployment will create the following resources in your Azure subscription which you should manually delete after you finish to avoid incurring in extra costs:
 
